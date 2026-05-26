@@ -85,19 +85,17 @@ export const M3u8ProxyV2 = async (
     for (const line of m3u8FileChunks) {
       // lines that start with #'s are non data lines (they hold info like bitrate and other stuff)
       if (line.startsWith("#") || !line.trim()) {
-        if (line.startsWith('#EXT-X-MAP:URI="')) {
-          const url = getUrl(
-            line.replace('#EXT-X-MAP:URI="', "").replace('"', ""),
-            scrapeUrl
-          );
-          const searchParams = new URLSearchParams();
-          searchParams.set("url", url.toString());
-          if (scrapeHeadersString)
-            searchParams.set("headers", scrapeHeadersString);
-
-          m3u8AdjustedChunks.push(
-            `#EXT-X-MAP:URI="/v2?${searchParams.toString()}"`
-          );
+        // Replace the URI value inside EXT-X-KEY lines
+        if (line.startsWith('#EXT-X-KEY')) {
+          const fixed = line.replace(/URI="([^"]+)"/, (_, uri) => {
+            const resolved = getUrl(uri, scrapeUrl);
+            const sp = new URLSearchParams();
+            sp.set("url", resolved.toString());
+            if (scrapeHeadersString) sp.set("headers", scrapeHeadersString);
+            return `URI="https://m3u8proxy.adx300.workers.dev/v2?${sp.toString()}"`;
+          });
+          m3u8AdjustedChunks.push(fixed);
+          continue;
         } else {
           if (line.toLowerCase().includes('uri') || line.toLowerCase().includes('url')) {
             const topKey = line.split(":")[0]
